@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.env
+*.parquet
+*.csv
+/data/*
+!/data/*.dvc
+!/data/.gitkeep
+.ipynb_checkpoints/
+mlruns/
+kubeconfig*
