@@ -1,0 +1,77 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mlflow
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+spec:
+  project: default
+  sources:
+    - repoURL: https://community-charts.github.io/helm-charts
+      chart: mlflow
+      targetRevision: 1.11.7
+      helm:
+        valuesObject:
+          backendStore:
+            databaseMigration: true
+            databaseConnectionCheck: true
+            postgres:
+              enabled: true
+              host: pg-rw.data.svc.cluster.local
+              port: 5432
+              database: mlflow
+            existingDatabaseSecret:
+              name: pg-mlflow
+              usernameKey: username
+              passwordKey: password
+          artifactRoot:
+            proxiedArtifactStorage: true
+            s3:
+              enabled: true
+              bucket: mlflow-artifacts
+              existingSecret:
+                name: mlflow-s3
+          extraEnvVars:
+            MLFLOW_S3_ENDPOINT_URL: http://seaweedfs.data.svc.cluster.local:8333
+            AWS_DEFAULT_REGION: us-east-1
+          extraArgs:
+            workers: "1"
+          serverAllowedHosts:
+            - "*"
+          resources:
+            requests: { cpu: 50m, memory: 256Mi }
+            limits: { memory: 640Mi }
+          ingress:
+            enabled: true
+            className: traefik
+            annotations:
+              cert-manager.io/cluster-issuer: letsencrypt-prod
+              traefik.ingress.kubernetes.io/router.middlewares: mlflow-mlflow-basic-auth@kubernetescrd
+            hosts:
+              - host: mlflow.frontpage-ashfak.duckdns.org
+                paths:
+                  - path: /
+                    pathType: Prefix
+            tls:
+              - secretName: mlflow-tls
+                hosts:
+                  - mlflow.frontpage-ashfak.duckdns.org
+    - repoURL: https://github.com/ashfaknawshad/frontpage.git
+      targetRevision: main
+      path: deploy/platform/mlflow
+      directory:
+        recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mlflow
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff: { duration: 30s, factor: 2, maxDuration: 5m }
