@@ -59,8 +59,16 @@ jobs:
           dvc remote modify origin --local auth basic
           dvc remote modify origin --local user "$DAGSHUB_USER"
           dvc remote modify origin --local password "$DAGSHUB_TOKEN"
+          code=$(curl -s -o /tmp/me.json -w "%{http_code}" -u "$DAGSHUB_USER:$DAGSHUB_TOKEN" https://dagshub.com/api/v1/user)
+          if [ "$code" != "200" ]; then echo "::error::DagsHub rejected DAGSHUB_USER/DAGSHUB_TOKEN (HTTP $code)"; exit 1; fi
+          echo "Authenticated to DagsHub as $(python -c 'import json;print(json.load(open("/tmp/me.json"))["login"])')"
           dvc add data/hn_stories.parquet
-          dvc push
+          dvc push -v 2>&1 | grep -vi "analytics" | tail -20
+          MD5=$(grep -m1 'md5:' data/hn_stories.parquet.dvc | awk '{print $3}')
+          URL="https://dagshub.com/ashfaknawshad/frontpage.dvc/files/md5/${MD5:0:2}/${MD5:2}"
+          code=$(curl -s -o /dev/null -w "%{http_code}" -I -L -u "$DAGSHUB_USER:$DAGSHUB_TOKEN" "$URL")
+          if [ "$code" != "200" ]; then echo "::error::dvc push did not land on DagsHub (HTTP $code for $MD5)"; exit 1; fi
+          echo "Verified on DagsHub: $MD5"
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/hn_stories.parquet.dvc data/hn_stories.stats.json
