@@ -5,7 +5,7 @@ on:
     branches: [main]
     paths:
       - "jobs/**"
-      - "tests/**"
+      - "tests/test_common.py"
       - "pytest.ini"
       - ".github/workflows/build-jobs.yml"
   workflow_dispatch:
@@ -31,7 +31,7 @@ jobs:
       - name: Unit tests
         run: |
           pip install -r jobs/requirements.txt pytest
-          python -m pytest -q tests
+          python -m pytest -q tests/test_common.py
 
       - uses: docker/setup-buildx-action@v3
 

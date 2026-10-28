@@ -1,0 +1,6 @@
+duckdb==2.0.0
+pandas==3.0.5
+pyarrow==26.0.0
+pandera==0.35.0
+huggingface_hub==2.3.0
+dvc==3.67.1
