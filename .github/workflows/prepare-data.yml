@@ -64,6 +64,10 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add data/hn_stories.parquet.dvc data/hn_stories.stats.json
+          if git diff --cached --quiet; then
+            echo "Data unchanged since the last run; nothing to commit."
+            exit 0
+          fi
           git commit -m "data: HN stories ${{ inputs.start }}..${{ inputs.end }} [skip ci]"
           git pull --rebase origin main
           git push origin HEAD:main
