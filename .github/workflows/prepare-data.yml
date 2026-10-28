@@ -43,10 +43,12 @@ jobs:
           import json
           s = json.load(open("data/hn_stories.stats.json"))
           print(f"### HN stories {s['first'][:10]} to {s['last'][:10]}")
-          print(f"{s['rows']:,} stories, {s['months']} months, {100*s['positive_rate']:.2f}% reached 100 points\n")
-          print("| Month | Stories | % >= 100 |\n|---|---|---|")
+          print(f"{s['rows']:,} stories, {s['months']} months. Reliable scores: {s['reliable_rows']:,} stories, "
+                f"{100*s['reliable_positive_rate']:.2f}% reached 100 points\n")
+          print("| Month | Stories | % >= 100 | Scores reliable |\n|---|---|---|---|")
           for m in s["per_month"]:
-              print(f"| {m['month']} | {m['stories']:,} | {100*m['positive_rate']:.2f} |")
+              flag = "yes" if m["reliable"] else "**no (stale)**"
+              print(f"| {m['month']} | {m['stories']:,} | {100*m['positive_rate']:.2f} | {flag} |")
           PY
 
       - name: Version with DVC and push to DagsHub

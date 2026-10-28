@@ -13,6 +13,7 @@ log = logging.getLogger("prepare")
 
 HF_REPO = "open-index/hacker-news"
 LABEL_THRESHOLD = 100
+MIN_RELATIVE_POSITIVE_RATE = 0.75
 
 STORY_SQL = """
 SELECT
@@ -44,9 +45,12 @@ SCHEMA = pa.DataFrameSchema(
         "score": pa.Column("int32", pa.Check.ge(0)),
         "descendants": pa.Column("int32", pa.Check.ge(0)),
         "label": pa.Column(bool),
+        "score_reliable": pa.Column(bool),
     },
     checks=[
-        pa.Check(lambda df: 0.01 <= df["label"].mean() <= 0.30, error="positive rate outside 1%-30%"),
+        pa.Check(lambda df: 0.01 <= df.loc[df["score_reliable"], "label"].mean() <= 0.30,
+                 error="positive rate of reliable months outside 1%-30%"),
+        pa.Check(lambda df: df["score_reliable"].mean() >= 0.5, error="fewer than half the rows have reliable scores"),
     ],
     strict=True,
     coerce=False,
@@ -114,21 +118,34 @@ def build(months, fetch, cache_dir):
         raise SystemExit("no months downloaded")
     out = pd.concat(frames, ignore_index=True)
     out = out.sort_values("posted_at").drop_duplicates("id", keep="last").reset_index(drop=True)
-    cols = ["id", "title", "url", "domain", "by", "kind", "posted_at", "month", "score", "descendants", "label"]
+    rates = out.groupby("month")["label"].mean()
+    floor = MIN_RELATIVE_POSITIVE_RATE * rates.median()
+    out["score_reliable"] = out["month"].map(rates >= floor).astype(bool)
+    for month, rate in rates[rates < floor].items():
+        log.warning("%s: positive rate %.2f%% is below %.2f%% (75%% of the median month); scores look stale, "
+                    "flagged score_reliable=False", month, 100 * rate, 100 * floor)
+    cols = ["id", "title", "url", "domain", "by", "kind", "posted_at", "month", "score", "descendants", "label",
+            "score_reliable"]
     return SCHEMA.validate(out[cols])
 
 
 def summarize(df):
-    per_month = df.groupby("month").agg(stories=("id", "size"), positive_rate=("label", "mean")).reset_index()
+    per_month = df.groupby("month").agg(
+        stories=("id", "size"), positive_rate=("label", "mean"), reliable=("score_reliable", "all")
+    ).reset_index()
+    reliable = df[df["score_reliable"]]
     return {
         "rows": int(len(df)),
+        "reliable_rows": int(len(reliable)),
+        "reliable_positive_rate": round(float(reliable["label"].mean()), 4),
         "months": len(per_month),
         "first": str(df["posted_at"].min()),
         "last": str(df["posted_at"].max()),
         "positive_rate": round(float(df["label"].mean()), 4),
         "kinds": {k: int(v) for k, v in df["kind"].value_counts().items()},
         "per_month": [
-            {"month": r.month, "stories": int(r.stories), "positive_rate": round(float(r.positive_rate), 4)}
+            {"month": r.month, "stories": int(r.stories), "positive_rate": round(float(r.positive_rate), 4),
+             "reliable": bool(r.reliable)}
             for r in per_month.itertuples()
         ],
     }
