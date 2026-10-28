@@ -1,0 +1,38 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: label
+spec:
+  schedule: "7 * * * *"
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 1
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 1
+      activeDeadlineSeconds: 1200
+      ttlSecondsAfterFinished: 3600
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+          containers:
+            - name: label
+              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-0000000
+              args: ["jobs.label"]
+              env:
+                - { name: PGHOST, value: pg-rw.data.svc.cluster.local }
+                - { name: PGDATABASE, value: frontpage }
+                - name: PGUSER
+                  valueFrom: { secretKeyRef: { name: pg-frontpage, key: username } }
+                - name: PGPASSWORD
+                  valueFrom: { secretKeyRef: { name: pg-frontpage, key: password } }
+              resources:
+                requests: { cpu: 20m, memory: 48Mi }
+                limits: { memory: 160Mi }
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: [ALL] }

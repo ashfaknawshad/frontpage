@@ -1,0 +1,66 @@
+name: build-jobs
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "jobs/**"
+      - "tests/**"
+      - ".github/workflows/build-jobs.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: build-jobs
+  cancel-in-progress: false
+
+jobs:
+  test-build-deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Unit tests
+        run: |
+          pip install -r jobs/requirements.txt pytest
+          pytest -q tests
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image tag
+        id: tag
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: jobs/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/frontpage-jobs:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Bump image tag in deploy/ (GitOps)
+        run: |
+          TAG=${{ steps.tag.outputs.tag }}
+          sed -i -E "s#(ghcr.io/${{ github.repository_owner }}/frontpage-jobs):[A-Za-z0-9._-]+#\1:${TAG}#" deploy/frontpage/jobs/*.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/frontpage/jobs
+          git diff --cached --quiet && exit 0
+          git commit -m "deploy: frontpage-jobs ${TAG} [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
