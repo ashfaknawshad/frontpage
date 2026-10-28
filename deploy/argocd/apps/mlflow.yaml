@@ -41,7 +41,17 @@ spec:
             - "*"
           resources:
             requests: { cpu: 50m, memory: 256Mi }
-            limits: { memory: 640Mi }
+            limits: { memory: 1Gi }
+          livenessProbe:
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 5
+          readinessProbe:
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 5
           ingress:
             enabled: true
             className: traefik
