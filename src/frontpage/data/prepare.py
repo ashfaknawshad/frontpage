@@ -98,12 +98,20 @@ def download_month(month, cache_dir):
 def build(months, fetch, cache_dir):
     frames = []
     for month in months:
-        path = fetch(month, cache_dir)
+        try:
+            path = fetch(month, cache_dir)
+        except Exception as exc:
+            if "404" in str(exc) or "EntryNotFound" in type(exc).__name__:
+                log.warning("%s: not in the dataset yet, skipping", month)
+                continue
+            raise
         df = stories_from_file(path, month)
         log.info("%s: %d stories, %.2f%% >= %d points", month, len(df), 100 * df["label"].mean(), LABEL_THRESHOLD)
         frames.append(df)
         if os.environ.get("PREPARE_DELETE_RAW", "1") == "1":
             Path(path).unlink(missing_ok=True)
+    if not frames:
+        raise SystemExit("no months downloaded")
     out = pd.concat(frames, ignore_index=True)
     out = out.sort_values("posted_at").drop_duplicates("id", keep="last").reset_index(drop=True)
     cols = ["id", "title", "url", "domain", "by", "kind", "posted_at", "month", "score", "descendants", "label"]
