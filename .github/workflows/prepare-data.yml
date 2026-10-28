@@ -63,7 +63,7 @@ jobs:
           if [ "$code" != "200" ]; then echo "::error::DagsHub rejected DAGSHUB_USER/DAGSHUB_TOKEN (HTTP $code)"; exit 1; fi
           echo "Authenticated to DagsHub as $(python -c 'import json;print(json.load(open("/tmp/me.json"))["login"])')"
           dvc add data/hn_stories.parquet
-          dvc push -v 2>&1 | grep -vi "analytics" | tail -20
+          dvc push -v data/hn_stories.parquet.dvc 2>&1 | grep -vi "analytics" | tail -20
           MD5=$(grep -m1 'md5:' data/hn_stories.parquet.dvc | awk '{print $3}')
           URL="https://dagshub.com/ashfaknawshad/frontpage.dvc/files/md5/${MD5:0:2}/${MD5:2}"
           code=$(curl -s -o /dev/null -w "%{http_code}" -I -L -u "$DAGSHUB_USER:$DAGSHUB_TOKEN" "$URL")

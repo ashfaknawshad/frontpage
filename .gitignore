@@ -7,10 +7,6 @@ __pycache__/
 .hf-cache/
 *.parquet
 *.csv
-/data/*
-!/data/*.dvc
-!/data/*.stats.json
-!/data/.gitkeep
 .ipynb_checkpoints/
 mlruns/
 kubeconfig*
