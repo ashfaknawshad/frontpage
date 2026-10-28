@@ -1,5 +1,7 @@
 {
   "rows": 612709,
+  "reliable_rows": 344072,
+  "reliable_positive_rate": 0.0468,
   "months": 23,
   "first": "2024-10-01 00:01:09+00:00",
   "last": "2026-08-21 23:59:00+00:00",
@@ -14,117 +16,140 @@
     {
       "month": "2024-10",
       "stories": 24463,
-      "positive_rate": 0.0453
+      "positive_rate": 0.0453,
+      "reliable": true
     },
     {
       "month": "2024-11",
       "stories": 22247,
-      "positive_rate": 0.0456
+      "positive_rate": 0.0456,
+      "reliable": true
     },
     {
       "month": "2024-12",
       "stories": 22564,
-      "positive_rate": 0.0459
+      "positive_rate": 0.0459,
+      "reliable": true
     },
     {
       "month": "2025-01",
       "stories": 25086,
-      "positive_rate": 0.0458
+      "positive_rate": 0.0458,
+      "reliable": true
     },
     {
       "month": "2025-02",
       "stories": 22445,
-      "positive_rate": 0.0522
+      "positive_rate": 0.0522,
+      "reliable": true
     },
     {
       "month": "2025-03",
       "stories": 25331,
-      "positive_rate": 0.0469
+      "positive_rate": 0.0469,
+      "reliable": true
     },
     {
       "month": "2025-04",
       "stories": 24427,
-      "positive_rate": 0.0442
+      "positive_rate": 0.0442,
+      "reliable": true
     },
     {
       "month": "2025-05",
       "stories": 25279,
-      "positive_rate": 0.0442
+      "positive_rate": 0.0442,
+      "reliable": true
     },
     {
       "month": "2025-06",
       "stories": 23844,
-      "positive_rate": 0.0423
+      "positive_rate": 0.0423,
+      "reliable": true
     },
     {
       "month": "2025-07",
       "stories": 25546,
-      "positive_rate": 0.0455
+      "positive_rate": 0.0455,
+      "reliable": true
     },
     {
       "month": "2025-08",
       "stories": 25464,
-      "positive_rate": 0.0497
+      "positive_rate": 0.0497,
+      "reliable": true
     },
     {
       "month": "2025-09",
       "stories": 25387,
-      "positive_rate": 0.0496
+      "positive_rate": 0.0496,
+      "reliable": true
     },
     {
       "month": "2025-10",
       "stories": 26672,
-      "positive_rate": 0.0505
+      "positive_rate": 0.0505,
+      "reliable": true
     },
     {
       "month": "2025-11",
       "stories": 25317,
-      "positive_rate": 0.0475
+      "positive_rate": 0.0475,
+      "reliable": true
     },
     {
       "month": "2025-12",
       "stories": 27484,
-      "positive_rate": 0.0326
+      "positive_rate": 0.0326,
+      "reliable": false
     },
     {
       "month": "2026-01",
       "stories": 31863,
-      "positive_rate": 0.0009
+      "positive_rate": 0.0009,
+      "reliable": false
     },
     {
       "month": "2026-02",
       "stories": 32760,
-      "positive_rate": 0.001
+      "positive_rate": 0.001,
+      "reliable": false
     },
     {
       "month": "2026-03",
       "stories": 34607,
-      "positive_rate": 0.0011
+      "positive_rate": 0.0011,
+      "reliable": false
     },
     {
       "month": "2026-04",
       "stories": 29984,
-      "positive_rate": 0.001
+      "positive_rate": 0.001,
+      "reliable": false
     },
     {
       "month": "2026-05",
       "stories": 28978,
-      "positive_rate": 0.0005
+      "positive_rate": 0.0005,
+      "reliable": false
     },
     {
       "month": "2026-06",
       "stories": 30102,
-      "positive_rate": 0.0008
+      "positive_rate": 0.0008,
+      "reliable": false
     },
     {
       "month": "2026-07",
       "stories": 31626,
-      "positive_rate": 0.0006
+      "positive_rate": 0.0006,
+      "reliable": false
     },
     {
       "month": "2026-08",
       "stories": 21233,
-      "positive_rate": 0.0005
+      "positive_rate": 0.0005,
+      "reliable": false
     }
   ]
 }
