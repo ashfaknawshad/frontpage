@@ -1,0 +1,130 @@
+{
+  "rows": 612709,
+  "months": 23,
+  "first": "2024-10-01 00:01:09+00:00",
+  "last": "2026-08-21 23:59:00+00:00",
+  "positive_rate": 0.0281,
+  "kinds": {
+    "story": 531555,
+    "show": 65663,
+    "ask": 15305,
+    "launch": 186
+  },
+  "per_month": [
+    {
+      "month": "2024-10",
+      "stories": 24463,
+      "positive_rate": 0.0453
+    },
+    {
+      "month": "2024-11",
+      "stories": 22247,
+      "positive_rate": 0.0456
+    },
+    {
+      "month": "2024-12",
+      "stories": 22564,
+      "positive_rate": 0.0459
+    },
+    {
+      "month": "2025-01",
+      "stories": 25086,
+      "positive_rate": 0.0458
+    },
+    {
+      "month": "2025-02",
+      "stories": 22445,
+      "positive_rate": 0.0522
+    },
+    {
+      "month": "2025-03",
+      "stories": 25331,
+      "positive_rate": 0.0469
+    },
+    {
+      "month": "2025-04",
+      "stories": 24427,
+      "positive_rate": 0.0442
+    },
+    {
+      "month": "2025-05",
+      "stories": 25279,
+      "positive_rate": 0.0442
+    },
+    {
+      "month": "2025-06",
+      "stories": 23844,
+      "positive_rate": 0.0423
+    },
+    {
+      "month": "2025-07",
+      "stories": 25546,
+      "positive_rate": 0.0455
+    },
+    {
+      "month": "2025-08",
+      "stories": 25464,
+      "positive_rate": 0.0497
+    },
+    {
+      "month": "2025-09",
+      "stories": 25387,
+      "positive_rate": 0.0496
+    },
+    {
+      "month": "2025-10",
+      "stories": 26672,
+      "positive_rate": 0.0505
+    },
+    {
+      "month": "2025-11",
+      "stories": 25317,
+      "positive_rate": 0.0475
+    },
+    {
+      "month": "2025-12",
+      "stories": 27484,
+      "positive_rate": 0.0326
+    },
+    {
+      "month": "2026-01",
+      "stories": 31863,
+      "positive_rate": 0.0009
+    },
+    {
+      "month": "2026-02",
+      "stories": 32760,
+      "positive_rate": 0.001
+    },
+    {
+      "month": "2026-03",
+      "stories": 34607,
+      "positive_rate": 0.0011
+    },
+    {
+      "month": "2026-04",
+      "stories": 29984,
+      "positive_rate": 0.001
+    },
+    {
+      "month": "2026-05",
+      "stories": 28978,
+      "positive_rate": 0.0005
+    },
+    {
+      "month": "2026-06",
+      "stories": 30102,
+      "positive_rate": 0.0008
+    },
+    {
+      "month": "2026-07",
+      "stories": 31626,
+      "positive_rate": 0.0006
+    },
+    {
+      "month": "2026-08",
+      "stories": 21233,
+      "positive_rate": 0.0005
+    }
+  ]
+}

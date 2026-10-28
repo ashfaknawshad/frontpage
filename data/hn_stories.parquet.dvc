@@ -1,0 +1,5 @@
+outs:
+- md5: 57255ff604d208fc41e3b3b108b90e2b
+  size: 65153883
+  hash: md5
+  path: hn_stories.parquet
