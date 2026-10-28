@@ -35,13 +35,14 @@ spec:
           extraEnvVars:
             MLFLOW_S3_ENDPOINT_URL: http://seaweedfs.data.svc.cluster.local:8333
             AWS_DEFAULT_REGION: us-east-1
+            MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
           extraArgs:
             workers: "1"
           serverAllowedHosts:
             - "*"
           resources:
             requests: { cpu: 50m, memory: 256Mi }
-            limits: { memory: 1Gi }
+            limits: { memory: 768Mi }
           livenessProbe:
             initialDelaySeconds: 60
             periodSeconds: 30
