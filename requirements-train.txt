@@ -1,0 +1,10 @@
+mlflow==3.16.0
+scikit-learn==1.9.1
+pandas==3.0.5
+pyarrow==26.0.0
+numpy==2.5.3
+scipy==1.18.1
+matplotlib==3.11.2
+psutil
+pyyaml
+dvc==3.67.1

@@ -1,0 +1,99 @@
+name: train
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "data/*.dvc"
+      - "src/frontpage/features.py"
+      - "src/frontpage/metrics.py"
+      - "src/frontpage/serving.py"
+      - "src/frontpage/train.py"
+      - "params.yaml"
+      - "dvc.yaml"
+      - "requirements-train.txt"
+      - ".github/workflows/train.yml"
+  repository_dispatch:
+    types: [retrain]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: train
+  cancel-in-progress: false
+
+jobs:
+  train:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+      MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+      MLFLOW_DISABLE_TELEMETRY: "true"
+      MLFLOW_DISABLE_AGENT_HINT: "1"
+      MLFLOW_HTTP_REQUEST_TIMEOUT: "300"
+      TRAIN_TRIGGER: ${{ github.event_name }}${{ github.event.client_payload.reason && format(':{0}', github.event.client_payload.reason) || '' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-train.txt
+
+      - name: Install
+        run: pip install -r requirements-train.txt pytest && pip install -e .
+
+      - name: Unit tests
+        run: python -m pytest -q tests/test_features.py
+
+      - name: Check MLflow is reachable
+        run: |
+          code=$(curl -s -o /dev/null -w "%{http_code}" -u "$MLFLOW_TRACKING_USERNAME:$MLFLOW_TRACKING_PASSWORD" "$MLFLOW_TRACKING_URI/health")
+          if [ "$code" != "200" ]; then echo "::error::MLflow at $MLFLOW_TRACKING_URI returned HTTP $code"; exit 1; fi
+
+      - name: Pull data from DagsHub
+        env:
+          DAGSHUB_USER: ${{ secrets.DAGSHUB_USER }}
+          DAGSHUB_TOKEN: ${{ secrets.DAGSHUB_TOKEN }}
+        run: |
+          dvc remote modify origin --local auth basic
+          dvc remote modify origin --local user "$DAGSHUB_USER"
+          dvc remote modify origin --local password "$DAGSHUB_TOKEN"
+          dvc pull data/hn_stories.parquet.dvc
+
+      - name: Train, evaluate, gate, register (dvc repro)
+        run: dvc repro
+
+      - name: Summary
+        if: always()
+        run: |
+          python - <<'PY' >> "$GITHUB_STEP_SUMMARY"
+          import json, os
+          if not os.path.exists("reports/metrics.json"):
+              print("No metrics produced."); raise SystemExit
+          m = json.load(open("reports/metrics.json"))
+          k = next(key for key in m if "precision_at" in key).split("precision_at_")[1].split("_per_day")[0]
+          print(f"### Training: {m['rows_train']:,} train / {m['rows_val']:,} val / {m['rows_test']:,} test\n")
+          print(f"| Model | Val PR-AUC | Test PR-AUC | Test ROC-AUC | Test P@{k}/day |\n|---|---|---|---|---|")
+          for name in ("base_rate", "domain_only", "logreg_full"):
+              print(f"| {name} | {m[f'{name}.val_pr_auc']:.4f} | {m[f'{name}.test_pr_auc']:.4f} | "
+                    f"{m[f'{name}.test_roc_auc']:.4f} | {m[f'{name}.test_precision_at_{k}_per_day']:.3f} |")
+          print(f"\nModel size {m['model_size_mb']} MB, single-row latency {m['single_row_ms']} ms, fit {m['fit_seconds']} s.\n")
+          if os.path.exists("reports/gate.json"):
+              g = json.load(open("reports/gate.json"))
+              verdict = f"passed, registered as version {g.get('version')}" if g["passed"] else "failed, not registered"
+              print(f"**Quality gate:** {verdict} (lift over domain-only {g['lift']:.4f}; champion test PR-AUC {g['champion_test_pr_auc']})")
+          PY
+
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: reports
+          path: |
+            reports/
+            dvc.lock

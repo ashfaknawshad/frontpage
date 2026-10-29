@@ -10,3 +10,6 @@ __pycache__/
 .ipynb_checkpoints/
 mlruns/
 kubeconfig*
+models/
+reports/
+dvc.lock

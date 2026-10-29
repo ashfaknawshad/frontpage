@@ -1,0 +1,21 @@
+stages:
+  train:
+    cmd: python -m frontpage.train
+    deps:
+      - data/hn_stories.parquet
+      - src/frontpage/features.py
+      - src/frontpage/metrics.py
+      - src/frontpage/serving.py
+      - src/frontpage/train.py
+    params:
+      - data
+      - features
+      - model
+      - eval
+      - gate
+    outs:
+      - models/pipeline.joblib:
+          cache: false
+    metrics:
+      - reports/metrics.json:
+          cache: false
