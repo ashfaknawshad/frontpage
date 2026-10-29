@@ -12,4 +12,3 @@ mlruns/
 kubeconfig*
 models/
 reports/
-dvc.lock
