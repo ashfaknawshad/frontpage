@@ -84,6 +84,12 @@ spec:
         nodePort: ${TRAEFIK_HTTP_NODEPORT}
       websecure:
         nodePort: 30443
+    providers:
+      kubernetesIngress:
+        publishedService:
+          enabled: false
+        ingressEndpoint:
+          ip: ${PUBLIC_IP}
 TRAEFIK
 
 echo "==> Installing k3s"
