@@ -23,7 +23,7 @@ def add_features(df):
     title = df["title"].fillna("").astype(str).str.strip()
     url = df["url"].astype("string") if "url" in df else pd.Series(pd.NA, index=df.index, dtype="string")
     url = url.where(url.str.len() > 0)
-    posted = pd.to_datetime(df["posted_at"], utc=True)
+    posted = pd.to_datetime(df["posted_at"], utc=True, format="ISO8601")
     host = url.str.extract(DOMAIN_RE, expand=False).str.lower().str.replace(r"^www\.", "", regex=True)
     hour = posted.dt.hour + posted.dt.minute / 60.0
     out["title"] = title

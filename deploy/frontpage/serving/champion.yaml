@@ -1,0 +1,43 @@
+apiVersion: serving.kserve.io/v1beta1
+kind: InferenceService
+metadata:
+  name: frontpage-champion
+  annotations:
+    serving.kserve.io/deploymentMode: Standard
+    serving.kserve.io/autoscalerClass: hpa
+spec:
+  predictor:
+    minReplicas: 1
+    maxReplicas: 3
+    scaleMetric: cpu
+    scaleTarget: 70
+    annotations:
+      prometheus.io/scrape: "true"
+      prometheus.io/port: "8080"
+      prometheus.io/path: /metrics
+    containers:
+      - name: kserve-container
+        image: ghcr.io/ashfaknawshad/frontpage-serving:sha-0000000
+        env:
+          - { name: MODEL_URI, value: "models:/frontpage/1" }
+          - { name: MODEL_ROLE, value: champion }
+          - { name: MLFLOW_TRACKING_URI, value: "http://mlflow.mlflow.svc.cluster.local" }
+          - { name: MLFLOW_DISABLE_TELEMETRY, value: "true" }
+        ports:
+          - { containerPort: 8080, protocol: TCP }
+        readinessProbe:
+          httpGet: { path: /healthz, port: 8080 }
+          initialDelaySeconds: 15
+          periodSeconds: 10
+        livenessProbe:
+          httpGet: { path: /healthz, port: 8080 }
+          initialDelaySeconds: 120
+          periodSeconds: 30
+        resources:
+          requests: { cpu: 100m, memory: 384Mi }
+          limits: { memory: 1Gi }
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 10001
+          allowPrivilegeEscalation: false
+          capabilities: { drop: [ALL] }

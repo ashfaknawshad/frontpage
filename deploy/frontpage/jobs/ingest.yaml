@@ -29,6 +29,9 @@ spec:
                   valueFrom: { secretKeyRef: { name: pg-frontpage, key: username } }
                 - name: PGPASSWORD
                   valueFrom: { secretKeyRef: { name: pg-frontpage, key: password } }
+                - { name: GATEWAY_URL, value: http://gateway.frontpage.svc.cluster.local }
+                - name: GATEWAY_API_KEY
+                  valueFrom: { secretKeyRef: { name: gateway-api-keys, key: INGEST_KEY } }
               resources:
                 requests: { cpu: 20m, memory: 48Mi }
                 limits: { memory: 160Mi }

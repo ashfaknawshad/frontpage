@@ -1,0 +1,9 @@
+mlflow-skinny==3.16.0
+scikit-learn==1.9.1
+pandas==3.0.5
+numpy==2.5.3
+scipy==1.18.1
+joblib
+fastapi==0.162.0
+uvicorn==0.54.0
+prometheus-client==0.26.0

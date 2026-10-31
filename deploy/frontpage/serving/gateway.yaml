@@ -1,0 +1,105 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gateway
+  labels: { app: gateway }
+spec:
+  replicas: 1
+  selector:
+    matchLabels: { app: gateway }
+  template:
+    metadata:
+      labels: { app: gateway }
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8000"
+        prometheus.io/path: /metrics
+    spec:
+      containers:
+        - name: gateway
+          image: ghcr.io/ashfaknawshad/frontpage-gateway:sha-0000000
+          ports:
+            - { name: http, containerPort: 8000 }
+          env:
+            - { name: PGHOST, value: pg-rw.data.svc.cluster.local }
+            - { name: PGDATABASE, value: frontpage }
+            - name: PGUSER
+              valueFrom: { secretKeyRef: { name: pg-frontpage, key: username } }
+            - name: PGPASSWORD
+              valueFrom: { secretKeyRef: { name: pg-frontpage, key: password } }
+            - name: API_KEYS
+              valueFrom: { secretKeyRef: { name: gateway-api-keys, key: API_KEYS } }
+            - { name: CHAMPION_URL, value: "http://frontpage-champion-predictor.frontpage.svc.cluster.local/v1/models/frontpage:predict" }
+            - { name: CHALLENGER_URL, value: "" }
+            - { name: ROUTING_MODE, value: shadow }
+            - { name: CANARY_PERCENT, value: "0" }
+          readinessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          livenessProbe:
+            httpGet: { path: /healthz, port: http }
+            initialDelaySeconds: 30
+            periodSeconds: 30
+          resources:
+            requests: { cpu: 50m, memory: 96Mi }
+            limits: { memory: 384Mi }
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities: { drop: [ALL] }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: gateway
+spec:
+  selector: { app: gateway }
+  ports:
+    - { name: http, port: 80, targetPort: http }
+---
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: gateway
+spec:
+  scaleTargetRef: { apiVersion: apps/v1, kind: Deployment, name: gateway }
+  minReplicas: 1
+  maxReplicas: 3
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target: { type: Utilization, averageUtilization: 70 }
+---
+apiVersion: traefik.io/v1alpha1
+kind: Middleware
+metadata:
+  name: api-ratelimit
+spec:
+  rateLimit:
+    average: 10
+    period: 1s
+    burst: 30
+    sourceCriterion:
+      ipStrategy:
+        depth: 1
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway
+  annotations:
+    traefik.ingress.kubernetes.io/router.middlewares: frontpage-api-ratelimit@kubernetescrd
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: api.frontpage-ashfak.duckdns.org
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service: { name: gateway, port: { name: http } }

@@ -1,0 +1,96 @@
+name: build-serving
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "serving/**"
+      - "services/gateway/**"
+      - "tests/test_gateway.py"
+      - ".github/workflows/build-serving.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+concurrency:
+  group: build-serving
+  cancel-in-progress: false
+
+jobs:
+  test-build-deploy:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: gw
+          POSTGRES_PASSWORD: gw
+          POSTGRES_DB: gwtest
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U gw" --health-interval 5s --health-timeout 5s --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Gateway tests (real Postgres, mocked predictors)
+        env:
+          TEST_DATABASE_URL: postgresql://gw:gw@localhost:5432/gwtest
+        run: |
+          pip install -r services/gateway/requirements.txt pytest
+          python -m pytest -q tests/test_gateway.py
+
+      - name: Predictor import check
+        run: |
+          pip install -r serving/requirements.txt
+          python -c "import sys; sys.path.insert(0, 'serving'); import server; print('predictor imports OK')"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Image tag
+        id: tag
+        run: echo "tag=sha-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: Build and push predictor
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: serving/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/frontpage-serving:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=serving
+          cache-to: type=gha,mode=max,scope=serving
+
+      - name: Build and push gateway
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: services/gateway/Dockerfile
+          push: true
+          tags: ghcr.io/${{ github.repository_owner }}/frontpage-gateway:${{ steps.tag.outputs.tag }}
+          cache-from: type=gha,scope=gateway
+          cache-to: type=gha,mode=max,scope=gateway
+
+      - name: Bump image tags in deploy/ (GitOps)
+        run: |
+          TAG=${{ steps.tag.outputs.tag }}
+          OWNER=${{ github.repository_owner }}
+          sed -i -E "s#(ghcr.io/${OWNER}/frontpage-(serving|gateway)):[A-Za-z0-9._-]+#\1:${TAG}#" deploy/frontpage/serving/*.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add deploy/frontpage/serving
+          git diff --cached --quiet && exit 0
+          git commit -m "deploy: frontpage-serving/gateway ${TAG} [skip ci]"
+          git pull --rebase origin main
+          git push origin HEAD:main
