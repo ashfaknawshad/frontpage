@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: gateway
-          image: ghcr.io/ashfaknawshad/frontpage-gateway:sha-0000000
+          image: ghcr.io/ashfaknawshad/frontpage-gateway:sha-b13554a
           ports:
             - { name: http, containerPort: 8000 }
           env:
