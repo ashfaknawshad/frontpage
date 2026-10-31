@@ -38,6 +38,8 @@ spec:
             MLFLOW_SERVER_ENABLE_JOB_EXECUTION: "false"
           extraArgs:
             workers: "1"
+          corsAllowedOrigins:
+            - https://mlflow.frontpage-ashfak.duckdns.org
           serverAllowedHosts:
             - "*"
           resources:
@@ -57,17 +59,13 @@ spec:
             enabled: true
             className: traefik
             annotations:
-              cert-manager.io/cluster-issuer: letsencrypt-prod
               traefik.ingress.kubernetes.io/router.middlewares: mlflow-mlflow-basic-auth@kubernetescrd
             hosts:
               - host: mlflow.frontpage-ashfak.duckdns.org
                 paths:
                   - path: /
                     pathType: Prefix
-            tls:
-              - secretName: mlflow-tls
-                hosts:
-                  - mlflow.frontpage-ashfak.duckdns.org
+            tls: []
     - repoURL: https://github.com/ashfaknawshad/frontpage.git
       targetRevision: main
       path: deploy/platform/mlflow

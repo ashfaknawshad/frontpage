@@ -31,9 +31,7 @@ server:
   ingress:
     enabled: true
     ingressClassName: traefik
-    annotations:
-      cert-manager.io/cluster-issuer: letsencrypt-prod
-    tls: true
+    tls: false
 
 redis:
   resources:
