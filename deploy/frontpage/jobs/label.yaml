@@ -20,7 +20,7 @@ spec:
             runAsUser: 10001
           containers:
             - name: label
-              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-3c32fa6
+              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-b13554a
               args: ["jobs.label"]
               env:
                 - { name: PGHOST, value: pg-rw.data.svc.cluster.local }

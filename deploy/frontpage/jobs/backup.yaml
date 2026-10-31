@@ -54,7 +54,7 @@ spec:
                 limits: { memory: 256Mi }
           containers:
             - name: upload
-              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-3c32fa6
+              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-b13554a
               args: ["jobs.backup"]
               envFrom:
                 - secretRef:
