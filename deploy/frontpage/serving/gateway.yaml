@@ -17,7 +17,7 @@ spec:
     spec:
       containers:
         - name: gateway
-          image: ghcr.io/ashfaknawshad/frontpage-gateway:sha-7cd638c
+          image: ghcr.io/ashfaknawshad/frontpage-gateway:sha-0000000
           ports:
             - { name: http, containerPort: 8000 }
           env:
@@ -30,7 +30,7 @@ spec:
             - name: API_KEYS
               valueFrom: { secretKeyRef: { name: gateway-api-keys, key: API_KEYS } }
             - { name: CHAMPION_URL, value: "http://frontpage-champion-predictor.frontpage.svc.cluster.local/v1/models/frontpage:predict" }
-            - { name: CHALLENGER_URL, value: "" }
+            - { name: CHALLENGER_URL, value: "http://frontpage-challenger-predictor.frontpage.svc.cluster.local/v1/models/frontpage:predict" }
             - { name: ROUTING_MODE, value: shadow }
             - { name: CANARY_PERCENT, value: "0" }
           readinessProbe:
