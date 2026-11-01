@@ -1,0 +1,97 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: grafana
+  namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+spec:
+  project: default
+  sources:
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: grafana
+      targetRevision: 14.3.0
+      helm:
+        valuesObject:
+          replicas: 1
+          admin:
+            existingSecret: grafana-admin
+            userKey: admin-user
+            passwordKey: admin-password
+          envFromSecrets:
+            - name: grafana-env
+          resources:
+            requests: { cpu: 50m, memory: 192Mi }
+            limits: { memory: 384Mi }
+          persistence:
+            enabled: true
+            size: 1Gi
+          testFramework:
+            enabled: false
+          grafana.ini:
+            server:
+              root_url: https://grafana.frontpage-ashfak.duckdns.org
+            analytics:
+              reporting_enabled: false
+              check_for_updates: false
+              check_for_plugin_updates: false
+            users:
+              default_theme: dark
+            dashboards:
+              default_home_dashboard_path: /tmp/dashboards/service.json
+          datasources:
+            datasources.yaml:
+              apiVersion: 1
+              datasources:
+                - name: Prometheus
+                  uid: prometheus
+                  type: prometheus
+                  access: proxy
+                  url: http://prometheus-server.monitoring.svc.cluster.local
+                  isDefault: true
+                  jsonData:
+                    timeInterval: 30s
+                - name: Frontpage Postgres
+                  uid: postgres
+                  type: grafana-postgresql-datasource
+                  access: proxy
+                  url: pg-rw.data.svc.cluster.local:5432
+                  user: grafana_ro
+                  jsonData:
+                    database: frontpage
+                    sslmode: disable
+                    postgresVersion: 1500
+                    timescaledb: false
+                  secureJsonData:
+                    password: $GF_PG_PASSWORD
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+              labelValue: "1"
+              searchNamespace: monitoring
+          ingress:
+            enabled: true
+            ingressClassName: traefik
+            hosts:
+              - grafana.frontpage-ashfak.duckdns.org
+            path: /
+            pathType: Prefix
+    - repoURL: https://github.com/ashfaknawshad/frontpage.git
+      targetRevision: main
+      path: deploy/platform/monitoring
+      directory:
+        recurse: true
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - SkipDryRunOnMissingResource=true
+    retry:
+      limit: 10
+      backoff: { duration: 30s, factor: 2, maxDuration: 5m }

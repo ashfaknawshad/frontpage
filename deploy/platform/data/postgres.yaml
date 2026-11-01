@@ -27,6 +27,13 @@ spec:
         login: true
         passwordSecret:
           name: pg-mlflow
+      - name: grafana_ro
+        ensure: present
+        login: true
+        inRoles:
+          - pg_read_all_data
+        passwordSecret:
+          name: pg-grafana
 ---
 apiVersion: postgresql.cnpg.io/v1
 kind: Database

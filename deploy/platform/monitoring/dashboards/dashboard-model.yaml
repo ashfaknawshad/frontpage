@@ -1,0 +1,760 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dashboard-model
+  namespace: monitoring
+  labels:
+    grafana_dashboard: "1"
+data:
+  model.json: |
+    {
+      "uid": "fp-model",
+      "title": "Frontpage / Data and model quality",
+      "description": "Ingestion freshness, what the models predict, and how those predictions graded out 24 hours later.",
+      "tags": [
+        "frontpage",
+        "model"
+      ],
+      "schemaVersion": 39,
+      "version": 1,
+      "editable": true,
+      "graphTooltip": 1,
+      "refresh": "1m",
+      "time": {
+        "from": "now-6h",
+        "to": "now"
+      },
+      "timezone": "utc",
+      "templating": {
+        "list": []
+      },
+      "annotations": {
+        "list": []
+      },
+      "panels": [
+        {
+          "id": 1,
+          "type": "row",
+          "title": "Pipeline health",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 0,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 2,
+          "type": "stat",
+          "title": "Stories ingested (24h)",
+          "description": "",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 1,
+            "w": 4,
+            "h": 4
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT count(*) AS value FROM stories WHERE ingested_at > now() - interval '24 hours'",
+              "format": "table",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "none",
+            "textMode": "auto"
+          }
+        },
+        {
+          "id": 3,
+          "type": "stat",
+          "title": "Minutes since last story",
+          "description": "The ingest job runs every 5 minutes.",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 4,
+            "y": 1,
+            "w": 4,
+            "h": 4
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT round(extract(epoch FROM now() - max(ingested_at)) / 60) AS value FROM stories",
+              "format": "table",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 15
+                  },
+                  {
+                    "color": "red",
+                    "value": 30
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "none",
+            "textMode": "auto"
+          }
+        },
+        {
+          "id": 4,
+          "type": "stat",
+          "title": "Graded stories (total)",
+          "description": "",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 8,
+            "y": 1,
+            "w": 4,
+            "h": 4
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT count(*) AS value FROM labels WHERE status = 'ok'",
+              "format": "table",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "none",
+            "textMode": "auto"
+          }
+        },
+        {
+          "id": 5,
+          "type": "stat",
+          "title": "Hit rate, graded 7d",
+          "description": "Share of stories that reached 100 points. The training base rate was about 4.7%.",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 1,
+            "w": 4,
+            "h": 4
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT round(100 * avg(l.label::int)::numeric, 2) AS value FROM labels l JOIN stories s ON s.id = l.story_id WHERE l.status = 'ok' AND s.posted_at > now() - interval '7 days'",
+              "format": "table",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "unit": "percent",
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "none",
+            "textMode": "auto"
+          }
+        },
+        {
+          "id": 6,
+          "type": "stat",
+          "title": "Predictions (24h)",
+          "description": "",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 16,
+            "y": 1,
+            "w": 4,
+            "h": 4
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT count(*) AS value FROM predictions WHERE created_at > now() - interval '24 hours'",
+              "format": "table",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "none",
+            "textMode": "auto"
+          }
+        },
+        {
+          "id": 7,
+          "type": "stat",
+          "title": "Unlabeled backlog",
+          "description": "Stories older than 26 hours that still have no label. Should stay near zero.",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 20,
+            "y": 1,
+            "w": 4,
+            "h": 4
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT count(*) AS value FROM stories s LEFT JOIN labels l ON l.story_id = s.id WHERE l.story_id IS NULL AND s.posted_at < now() - interval '26 hours'",
+              "format": "table",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "green",
+                    "value": null
+                  },
+                  {
+                    "color": "orange",
+                    "value": 50
+                  },
+                  {
+                    "color": "red",
+                    "value": 500
+                  }
+                ]
+              },
+              "color": {
+                "mode": "thresholds"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "reduceOptions": {
+              "calcs": [
+                "lastNotNull"
+              ],
+              "fields": "",
+              "values": false
+            },
+            "colorMode": "value",
+            "graphMode": "none",
+            "textMode": "auto"
+          }
+        },
+        {
+          "id": 8,
+          "type": "timeseries",
+          "title": "Stories ingested per hour",
+          "description": "",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 5,
+            "w": 12,
+            "h": 7
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT $__timeGroupAlias(ingested_at, '1h'), count(*) AS stories FROM stories WHERE $__timeFilter(ingested_at) GROUP BY 1 ORDER BY 1",
+              "format": "time_series",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 0,
+                "showPoints": "never"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 9,
+          "type": "timeseries",
+          "title": "Graded outcome per day (hit rate)",
+          "description": "",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 5,
+            "w": 12,
+            "h": 7
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT $__timeGroupAlias(s.posted_at, '1d'), 100 * avg(l.label::int) AS hit_rate_percent FROM labels l JOIN stories s ON s.id = l.story_id WHERE l.status = 'ok' AND $__timeFilter(s.posted_at) GROUP BY 1 ORDER BY 1",
+              "format": "time_series",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 0,
+                "showPoints": "never"
+              },
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 10,
+          "type": "row",
+          "title": "What the models predict",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 12,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 11,
+          "type": "timeseries",
+          "title": "Predictions per hour by model",
+          "description": "",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 13,
+            "w": 12,
+            "h": 7
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT $__timeGroupAlias(p.created_at, '1h'), p.role || ' v' || p.model_version AS metric, count(*) AS scored FROM predictions p WHERE $__timeFilter(p.created_at) GROUP BY 1, 2 ORDER BY 1",
+              "format": "time_series",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 0,
+                "showPoints": "never"
+              }
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 12,
+          "type": "timeseries",
+          "title": "Mean predicted probability by model",
+          "description": "Compare with the real hit rate above. A calibrated model tracks it; the uncalibrated v1 sits far higher.",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 13,
+            "w": 12,
+            "h": 7
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT $__timeGroupAlias(p.created_at, '1h'), p.role || ' v' || p.model_version AS metric, avg(p.prob) AS mean_prob FROM predictions p WHERE $__timeFilter(p.created_at) GROUP BY 1, 2 ORDER BY 1",
+              "format": "time_series",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 0,
+                "showPoints": "never"
+              },
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        },
+        {
+          "id": 13,
+          "type": "row",
+          "title": "Live quality, graded 24 hours later",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 20,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 14,
+          "type": "table",
+          "title": "Scoreboard by model",
+          "description": "Lower Brier is better. Counts predictions logged before the label was written.",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 21,
+            "w": 12,
+            "h": 7
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT p.role || ' v' || p.model_version AS model, count(*) AS graded, round(avg(p.prob)::numeric, 4) AS mean_prob, round(avg(l.label::int)::numeric, 4) AS hit_rate, round(avg(power(p.prob - l.label::int, 2))::numeric, 4) AS brier, round(abs(avg(p.prob) - avg(l.label::int))::numeric, 4) AS mean_gap FROM predictions p JOIN labels l ON l.story_id = p.story_id WHERE l.status = 'ok' AND p.created_at < l.labeled_at AND $__timeFilter(p.created_at) GROUP BY 1 ORDER BY 1",
+              "format": "table",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true
+          }
+        },
+        {
+          "id": 15,
+          "type": "table",
+          "title": "Calibration (10 equal-sized bins per model)",
+          "description": "In a calibrated model, predicted and observed match in every bin.",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 12,
+            "y": 21,
+            "w": 12,
+            "h": 7
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "WITH g AS (SELECT p.role || ' v' || p.model_version AS model, p.prob, l.label::int AS y, ntile(10) OVER (PARTITION BY p.role || ' v' || p.model_version ORDER BY p.prob) AS bin FROM predictions p JOIN labels l ON l.story_id = p.story_id WHERE l.status = 'ok' AND p.created_at < l.labeled_at AND $__timeFilter(p.created_at)) SELECT model, bin, count(*) AS n, round(avg(prob)::numeric, 4) AS predicted, round(avg(y)::numeric, 4) AS observed FROM g GROUP BY 1, 2 ORDER BY 1, 2",
+              "format": "table",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true
+          }
+        },
+        {
+          "id": 16,
+          "type": "timeseries",
+          "title": "Precision@20 per day, by model",
+          "description": "Of the 20 stories the model ranked highest each day, the share that reached 100 points. Compare with the hit rate above.",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 28,
+            "w": 24,
+            "h": 8
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "WITH g AS (SELECT p.role || ' v' || p.model_version AS model, date_trunc('day', s.posted_at) AS day, l.label::int AS y, row_number() OVER (PARTITION BY p.role || ' v' || p.model_version, date_trunc('day', s.posted_at) ORDER BY p.prob DESC) AS rn FROM predictions p JOIN stories s ON s.id = p.story_id JOIN labels l ON l.story_id = s.id WHERE l.status = 'ok' AND p.created_at < l.labeled_at AND $__timeFilter(s.posted_at)) SELECT day AS time, model AS metric, avg(y) AS precision_at_20 FROM g WHERE rn <= 20 GROUP BY 1, 2 ORDER BY 1",
+              "format": "time_series",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {
+              "custom": {
+                "lineWidth": 1,
+                "fillOpacity": 0,
+                "showPoints": "never"
+              },
+              "min": 0
+            },
+            "overrides": []
+          },
+          "options": {
+            "legend": {
+              "displayMode": "list",
+              "placement": "bottom"
+            },
+            "tooltip": {
+              "mode": "multi",
+              "sort": "desc"
+            }
+          }
+        }
+      ]
+    }
