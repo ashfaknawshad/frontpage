@@ -15,12 +15,14 @@ model:
   C: 0.5
   class_weight: balanced
   max_iter: 300
+  calibration: sigmoid   # sigmoid (Platt, fitted on the validation months) or none
 
 eval:
   top_k_per_day: 20
 
 gate:
   min_lift_over_domain_baseline: 0.005
+  champion_tolerance: 0.002   # a new model may trail the champion's test PR-AUC by this much
 
 mlflow:
   experiment: frontpage

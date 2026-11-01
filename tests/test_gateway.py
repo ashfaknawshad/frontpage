@@ -131,3 +131,5 @@ def test_demo_page_renders_picks_and_report_card(monkeypatch):
     assert "Fresh &lt;story&gt;" in page
     assert "1 of 2 picks reached 100 points" in page
     assert "model v1" in page
+    assert "<td>#1</td>" in page
+    assert "%</td>" not in page.split("report card")[0].split("Today")[1]

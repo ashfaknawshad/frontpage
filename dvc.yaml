@@ -16,6 +16,8 @@ stages:
     outs:
       - models/pipeline.joblib:
           cache: false
+      - models/calibrator.joblib:
+          cache: false
     metrics:
       - reports/metrics.json:
           cache: false

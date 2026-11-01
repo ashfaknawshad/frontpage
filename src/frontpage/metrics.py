@@ -10,6 +10,14 @@ def precision_at_k_per_day(posted_at, y, prob, k):
     return float(top.groupby("day")["y"].mean().mean())
 
 
+def expected_calibration_error(y, prob, bins=10):
+    """Average gap between predicted and observed rate, using equal-sized (quantile) bins."""
+    frame = pd.DataFrame({"y": np.asarray(y, dtype=float), "p": np.asarray(prob, dtype=float)})
+    frame["bin"] = pd.qcut(frame["p"].rank(method="first"), bins, labels=False)
+    grouped = frame.groupby("bin").agg(y=("y", "mean"), p=("p", "mean"), n=("y", "size"))
+    return float((grouped["n"] * (grouped["y"] - grouped["p"]).abs()).sum() / grouped["n"].sum())
+
+
 def evaluate(y, prob, posted_at, k):
     y = np.asarray(y).astype(int)
     prob = np.clip(np.asarray(prob, dtype=float), 1e-6, 1 - 1e-6)
@@ -19,5 +27,7 @@ def evaluate(y, prob, posted_at, k):
         "brier": float(brier_score_loss(y, prob)),
         "log_loss": float(log_loss(y, prob)),
         f"precision_at_{k}_per_day": precision_at_k_per_day(posted_at, y, prob, k),
+        "ece": expected_calibration_error(y, prob),
+        "mean_prob": float(prob.mean()),
         "base_rate": float(y.mean()),
     }

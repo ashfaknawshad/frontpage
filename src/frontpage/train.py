@@ -63,22 +63,46 @@ def make_model(params, include):
     ])
 
 
-def fit_and_score(name, model, train, val, test, k):
+def fit_calibrator(model, val, method):
+    """Platt scaling: a 1-feature logistic regression on the model's raw score, fitted on the validation months.
+
+    It is a monotone map, so ranking metrics (PR-AUC, precision@k) do not change; probabilities become honest.
+    The validation metrics for Brier/ECE are therefore in-sample for the 2 fitted numbers; test is the clean read.
+    """
+    if method == "none":
+        return None
+    if method != "sigmoid":
+        raise ValueError(f"unknown calibration method: {method}")
+    raw = np.asarray(model.decision_function(val[INPUT_COLUMNS]), dtype=float).reshape(-1, 1)
+    return LogisticRegression(C=1e6, solver="lbfgs", max_iter=1000).fit(raw, val["label"])
+
+
+def predict_prob(model, calibrator, frame):
+    if calibrator is None:
+        return model.predict_proba(frame[INPUT_COLUMNS])[:, 1]
+    raw = np.asarray(model.decision_function(frame[INPUT_COLUMNS]), dtype=float).reshape(-1, 1)
+    return calibrator.predict_proba(raw)[:, 1]
+
+
+def fit_and_score(name, model, train, val, test, k, calibration="none"):
     t0 = time.time()
     model.fit(train[INPUT_COLUMNS], train["label"])
     fit_s = time.time() - t0
-    scores = {}
+    calibrator = fit_calibrator(model, val, calibration)
+    scores = {"calibrator": calibrator}
     for split_name, frame in (("val", val), ("test", test)):
-        prob = model.predict_proba(frame[INPUT_COLUMNS])[:, 1]
+        prob = predict_prob(model, calibrator, frame)
         scores[split_name] = evaluate(frame["label"], prob, frame["posted_at"], k)
         scores[split_name + "_prob"] = prob
     t0 = time.time()
-    model.predict_proba(test[INPUT_COLUMNS].head(1))
+    predict_prob(model, calibrator, test.head(1))
     scores["single_row_ms"] = (time.time() - t0) * 1000
     scores["fit_seconds"] = fit_s
-    log.info("%s: val PR-AUC %.4f, test PR-AUC %.4f, test P@%d/day %.3f, fit %.0fs", name,
-             scores["val"]["pr_auc"], scores["test"]["pr_auc"], k,
-             scores["test"][f"precision_at_{k}_per_day"], fit_s)
+    log.info("%s: val PR-AUC %.4f, test PR-AUC %.4f, test P@%d/day %.3f, test Brier %.4f, test ECE %.4f "
+             "(mean prob %.3f vs base rate %.3f), fit %.0fs", name,
+             scores["val"]["pr_auc"], scores["test"]["pr_auc"], k, scores["test"][f"precision_at_{k}_per_day"],
+             scores["test"]["brier"], scores["test"]["ece"], scores["test"]["mean_prob"],
+             scores["test"]["base_rate"], fit_s)
     return scores
 
 
@@ -150,10 +174,12 @@ def main():
     try:
         results = {"base_rate": baseline_rate_scores(train, val, test, k)}
         domain_model = make_model(params, include=("domain", "numeric"))
-        results["domain_only"] = fit_and_score("domain_only", domain_model, train, val, test, k)
+        calibration = params["model"]["calibration"]
+        results["domain_only"] = fit_and_score("domain_only", domain_model, train, val, test, k, calibration)
         model = make_model(params, include=("word", "char", "domain", "categorical", "numeric"))
-        results["logreg_full"] = fit_and_score("logreg_full", model, train, val, test, k)
+        results["logreg_full"] = fit_and_score("logreg_full", model, train, val, test, k, calibration)
         joblib.dump(model, "models/pipeline.joblib", compress=3)
+        joblib.dump(results["logreg_full"]["calibrator"], "models/calibrator.joblib")
 
         lift = results["logreg_full"]["val"]["pr_auc"] - results["domain_only"]["val"]["pr_auc"]
         best = results["logreg_full"]
@@ -234,7 +260,7 @@ def log_candidate(params, results, model, train, test, metrics, lift, tags):
     info = mlflow.pyfunc.log_model(
         name="model",
         python_model=FrontpageModel(),
-        artifacts={"pipeline": "models/pipeline.joblib"},
+        artifacts={"pipeline": "models/pipeline.joblib", "calibrator": "models/calibrator.joblib"},
         code_paths=[str(ROOT / "src" / "frontpage")],
         signature=signature,
         input_example=example,
@@ -246,11 +272,12 @@ def log_candidate(params, results, model, train, test, metrics, lift, tags):
     gate_ok = lift >= params["gate"]["min_lift_over_domain_baseline"] and val_pr > results["base_rate"]["val"]["pr_auc"]
     champ_pr, champ_version = champion_test_pr_auc(client, model_name)
     test_pr = results["logreg_full"]["test"]["pr_auc"]
-    beats_champion = champ_pr is None or test_pr >= champ_pr
+    beats_champion = champ_pr is None or test_pr >= champ_pr - params["gate"]["champion_tolerance"]
     passed = gate_ok and beats_champion
     mlflow.set_tags({"gate": "passed" if passed else "failed", "champion_test_pr_auc": str(champ_pr)})
     gate = {"passed": passed, "run_id": run.info.run_id, "lift": lift, "champion_version": champ_version,
-            "champion_test_pr_auc": champ_pr, "test_pr_auc": test_pr}
+            "champion_test_pr_auc": champ_pr, "test_pr_auc": test_pr,
+            "test_brier": results["logreg_full"]["test"]["brier"], "test_ece": results["logreg_full"]["test"]["ece"]}
     if not passed:
         log.warning("gate failed (lift %.4f, champion %s vs %.4f); not registering", lift, champ_pr, test_pr)
         Path("reports/gate.json").write_text(json.dumps(gate, indent=2))

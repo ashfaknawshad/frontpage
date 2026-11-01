@@ -23,6 +23,8 @@ CHAMPION_URL = os.environ.get("CHAMPION_URL", "http://frontpage-champion-predict
 CHALLENGER_URL = os.environ.get("CHALLENGER_URL", "")
 ROUTING_MODE = os.environ.get("ROUTING_MODE", "shadow")
 CANARY_PERCENT = float(os.environ.get("CANARY_PERCENT", "0"))
+# v1 scores are rank-only (not calibrated); the demo page shows rank unless the champion is calibrated.
+SHOW_PROBABILITY = os.environ.get("SHOW_PROBABILITY", "false").lower() == "true"
 API_KEYS = [k.strip() for k in os.environ.get("API_KEYS", "").split(",") if k.strip()]
 MAX_BATCH = int(os.environ.get("MAX_BATCH", "500"))
 UPSTREAM_TIMEOUT = float(os.environ.get("UPSTREAM_TIMEOUT_SECONDS", "20"))
@@ -232,13 +234,14 @@ async def demo(request: Request):
     picks = card[:20]
     hits = sum(1 for r in picks if r[5])
     base = (sum(1 for r in card if r[5]) / len(card)) if card else 0.0
+    first = (lambda n, p: f"{p:.0%}") if SHOW_PROBABILITY else (lambda n, p: f"#{n}")
     top_html = "".join(
-        f"<tr><td>{p:.0%}</td><td>{_link(t, u, i)}<div class='m'>{html.escape(d or 'text post')}"
+        f"<tr><td>{first(n, p)}</td><td>{_link(t, u, i)}<div class='m'>{html.escape(d or 'text post')}"
         f" · {posted:%H:%M} UTC</div></td></tr>"
-        for i, t, u, d, posted, p in top) or "<tr><td colspan=2>No scored stories yet.</td></tr>"
+        for n, (i, t, u, d, posted, p) in enumerate(top, 1)) or "<tr><td colspan=2>No scored stories yet.</td></tr>"
     card_html = "".join(
-        f"<tr class='{'hit' if lab else ''}'><td>{p:.0%}</td><td>{_link(t, u, i)}</td><td>{s}</td></tr>"
-        for i, t, u, p, s, lab in picks) or "<tr><td colspan=3>Labels arrive 24 hours after a story is posted.</td></tr>"
+        f"<tr class='{'hit' if lab else ''}'><td>{first(n, p)}</td><td>{_link(t, u, i)}</td><td>{s}</td></tr>"
+        for n, (i, t, u, p, s, lab) in enumerate(picks, 1)) or "<tr><td colspan=3>Labels arrive 24 hours after a story is posted.</td></tr>"
     summary = (f"{hits} of {len(picks)} picks reached 100 points; a random pick would hit {base:.1%} of the time."
                if picks else "No graded picks yet.")
     page = f"""<!doctype html><html lang="en"><head><meta charset="utf-8">
@@ -251,7 +254,7 @@ td:first-child{{width:3.5rem;font-variant-numeric:tabular-nums;font-weight:600}}
 tr.hit td:first-child{{color:#1a7f37}} .card{{background:#f5f5f7;padding:.6rem .8rem;border-radius:8px}}
 @media (prefers-color-scheme:dark){{body{{background:#111;color:#eee}} td{{border-color:#333}} .card{{background:#1c1c1e}}}}
 </style></head><body>
-<h1>Frontpage</h1><div class="sub">Which new Hacker News stories will reach 100 points? Scored live by model v{html.escape(version)}, graded 24 hours later.</div>
+<h1>Frontpage</h1><div class="sub">Which new Hacker News stories will reach 100 points? Scored live by model v{html.escape(version)}, graded 24 hours later.{"" if SHOW_PROBABILITY else " Ranked by model score."}</div>
 <h2>Today's top picks</h2><table>{top_html}</table>
 <h2>Yesterday's report card</h2><p class="card">{html.escape(summary)}</p><table>{card_html}</table>
 <p class="sub">API: POST /predict with an X-API-Key. Source: github.com/ashfaknawshad/frontpage</p>
