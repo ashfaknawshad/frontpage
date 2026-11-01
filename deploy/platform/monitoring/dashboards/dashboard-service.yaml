@@ -248,7 +248,7 @@ data:
                 "type": "prometheus",
                 "uid": "prometheus"
               },
-              "expr": "sum(rate(gateway_requests_total{status=~\"5..\"}[10m])) / clamp_min(sum(rate(gateway_requests_total[10m])), 0.001)",
+              "expr": "(sum(rate(gateway_requests_total{status=~\"5..\"}[10m])) or vector(0)) / clamp_min(sum(rate(gateway_requests_total[10m])), 0.001)",
               "legendFormat": "",
               "range": true
             }

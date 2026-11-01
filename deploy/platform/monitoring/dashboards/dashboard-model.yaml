@@ -21,7 +21,7 @@ data:
       "graphTooltip": 1,
       "refresh": "1m",
       "time": {
-        "from": "now-6h",
+        "from": "now-7d",
         "to": "now"
       },
       "timezone": "utc",
