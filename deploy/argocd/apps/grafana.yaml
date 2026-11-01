@@ -20,6 +20,7 @@ spec:
             passwordKey: admin-password
           envFromSecrets:
             - name: grafana-env
+            - name: grafana-discord
           resources:
             requests: { cpu: 50m, memory: 192Mi }
             limits: { memory: 384Mi }
@@ -70,6 +71,582 @@ spec:
               label: grafana_dashboard
               labelValue: "1"
               searchNamespace: monitoring
+          alerting:
+            contactpoints.yaml:
+              apiVersion: 1
+              contactPoints:
+              - orgId: 1
+                name: discord
+                receivers:
+                - uid: fp-discord
+                  type: discord
+                  disableResolveMessage: false
+                  settings:
+                    url: $DISCORD_WEBHOOK_URL
+                    use_discord_username: false
+            policies.yaml:
+              apiVersion: 1
+              policies:
+              - orgId: 1
+                receiver: discord
+                group_by:
+                - alertname
+                group_wait: 30s
+                group_interval: 5m
+                repeat_interval: 6h
+            rules.yaml:
+              apiVersion: 1
+              groups:
+              - orgId: 1
+                name: frontpage
+                folder: Frontpage
+                interval: 1m
+                rules:
+                - uid: fp-gateway-down
+                  title: Gateway down
+                  condition: C
+                  for: 5m
+                  noDataState: Alerting
+                  execErrState: Error
+                  labels:
+                    severity: critical
+                  annotations:
+                    summary: No gateway pod has answered a scrape for 5 minutes.
+                  data:
+                  - refId: A
+                    relativeTimeRange:
+                      from: 600
+                      to: 0
+                    datasourceUid: prometheus
+                    model:
+                      refId: A
+                      datasource: &id001
+                        type: prometheus
+                        uid: prometheus
+                      expr: sum(up{namespace="frontpage", pod=~"gateway.*"}) or vector(0)
+                      instant: true
+                      range: false
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: B
+                    datasourceUid: __expr__
+                    model:
+                      refId: B
+                      type: reduce
+                      expression: A
+                      reducer: last
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      settings:
+                        mode: dropNN
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: C
+                    datasourceUid: __expr__
+                    model:
+                      refId: C
+                      type: threshold
+                      expression: B
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      conditions:
+                      - evaluator:
+                          type: lt
+                          params:
+                          - 1
+                        operator:
+                          type: and
+                        query:
+                          params:
+                          - B
+                        reducer:
+                          type: last
+                          params: []
+                        type: query
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                - uid: fp-error-rate
+                  title: Gateway 5xx rate above 5%
+                  condition: C
+                  for: 10m
+                  noDataState: OK
+                  execErrState: Error
+                  labels:
+                    severity: critical
+                  annotations:
+                    summary: More than 5% of gateway requests failed with a 5xx over the last 10 minutes.
+                  data:
+                  - refId: A
+                    relativeTimeRange:
+                      from: 600
+                      to: 0
+                    datasourceUid: prometheus
+                    model:
+                      refId: A
+                      datasource: *id001
+                      expr: sum(rate(gateway_requests_total{status=~"5.."}[10m])) / clamp_min(sum(rate(gateway_requests_total[10m])), 0.001)
+                      instant: true
+                      range: false
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: B
+                    datasourceUid: __expr__
+                    model:
+                      refId: B
+                      type: reduce
+                      expression: A
+                      reducer: last
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      settings:
+                        mode: dropNN
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: C
+                    datasourceUid: __expr__
+                    model:
+                      refId: C
+                      type: threshold
+                      expression: B
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      conditions:
+                      - evaluator:
+                          type: gt
+                          params:
+                          - 0.05
+                        operator:
+                          type: and
+                        query:
+                          params:
+                          - B
+                        reducer:
+                          type: last
+                          params: []
+                        type: query
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                - uid: fp-upstream-failures
+                  title: Predictor calls failing
+                  condition: C
+                  for: 5m
+                  noDataState: OK
+                  execErrState: Error
+                  labels:
+                    severity: warning
+                  annotations:
+                    summary: The gateway could not get an answer from a predictor more than 5 times in 15 minutes.
+                  data:
+                  - refId: A
+                    relativeTimeRange:
+                      from: 600
+                      to: 0
+                    datasourceUid: prometheus
+                    model:
+                      refId: A
+                      datasource: *id001
+                      expr: sum(increase(gateway_upstream_errors_total[15m]))
+                      instant: true
+                      range: false
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: B
+                    datasourceUid: __expr__
+                    model:
+                      refId: B
+                      type: reduce
+                      expression: A
+                      reducer: last
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      settings:
+                        mode: dropNN
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: C
+                    datasourceUid: __expr__
+                    model:
+                      refId: C
+                      type: threshold
+                      expression: B
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      conditions:
+                      - evaluator:
+                          type: gt
+                          params:
+                          - 5
+                        operator:
+                          type: and
+                        query:
+                          params:
+                          - B
+                        reducer:
+                          type: last
+                          params: []
+                        type: query
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                - uid: fp-latency
+                  title: Gateway p95 latency above 2s
+                  condition: C
+                  for: 10m
+                  noDataState: OK
+                  execErrState: Error
+                  labels:
+                    severity: warning
+                  annotations:
+                    summary: The gateway's 95th percentile latency has been above 2 seconds for 10 minutes.
+                  data:
+                  - refId: A
+                    relativeTimeRange:
+                      from: 600
+                      to: 0
+                    datasourceUid: prometheus
+                    model:
+                      refId: A
+                      datasource: *id001
+                      expr: histogram_quantile(0.95, sum by (le) (rate(gateway_request_latency_seconds_bucket[10m])))
+                      instant: true
+                      range: false
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: B
+                    datasourceUid: __expr__
+                    model:
+                      refId: B
+                      type: reduce
+                      expression: A
+                      reducer: last
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      settings:
+                        mode: dropNN
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: C
+                    datasourceUid: __expr__
+                    model:
+                      refId: C
+                      type: threshold
+                      expression: B
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      conditions:
+                      - evaluator:
+                          type: gt
+                          params:
+                          - 2
+                        operator:
+                          type: and
+                        query:
+                          params:
+                          - B
+                        reducer:
+                          type: last
+                          params: []
+                        type: query
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                - uid: fp-restarts
+                  title: Containers restarting
+                  condition: C
+                  for: 5m
+                  noDataState: OK
+                  execErrState: Error
+                  labels:
+                    severity: warning
+                  annotations:
+                    summary: More than 3 container restarts in 15 minutes across the platform namespaces.
+                  data:
+                  - refId: A
+                    relativeTimeRange:
+                      from: 600
+                      to: 0
+                    datasourceUid: prometheus
+                    model:
+                      refId: A
+                      datasource: *id001
+                      expr: sum(increase(kube_pod_container_status_restarts_total{namespace=~"frontpage|data|mlflow|argocd|monitoring"}[15m]))
+                      instant: true
+                      range: false
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: B
+                    datasourceUid: __expr__
+                    model:
+                      refId: B
+                      type: reduce
+                      expression: A
+                      reducer: last
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      settings:
+                        mode: dropNN
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: C
+                    datasourceUid: __expr__
+                    model:
+                      refId: C
+                      type: threshold
+                      expression: B
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      conditions:
+                      - evaluator:
+                          type: gt
+                          params:
+                          - 3
+                        operator:
+                          type: and
+                        query:
+                          params:
+                          - B
+                        reducer:
+                          type: last
+                          params: []
+                        type: query
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                - uid: fp-node-memory
+                  title: Server memory low
+                  condition: C
+                  for: 10m
+                  noDataState: OK
+                  execErrState: Error
+                  labels:
+                    severity: warning
+                  annotations:
+                    summary: Less than 8% of memory is available. The server is shared with SME-GPT.
+                  data:
+                  - refId: A
+                    relativeTimeRange:
+                      from: 600
+                      to: 0
+                    datasourceUid: prometheus
+                    model:
+                      refId: A
+                      datasource: *id001
+                      expr: node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes
+                      instant: true
+                      range: false
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: B
+                    datasourceUid: __expr__
+                    model:
+                      refId: B
+                      type: reduce
+                      expression: A
+                      reducer: last
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      settings:
+                        mode: dropNN
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: C
+                    datasourceUid: __expr__
+                    model:
+                      refId: C
+                      type: threshold
+                      expression: B
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      conditions:
+                      - evaluator:
+                          type: lt
+                          params:
+                          - 0.08
+                        operator:
+                          type: and
+                        query:
+                          params:
+                          - B
+                        reducer:
+                          type: last
+                          params: []
+                        type: query
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                - uid: fp-backup-stale
+                  title: Postgres backup is stale
+                  condition: C
+                  for: 15m
+                  noDataState: Alerting
+                  execErrState: Error
+                  labels:
+                    severity: critical
+                  annotations:
+                    summary: The last completed nightly Postgres backup is more than 36 hours old.
+                  data:
+                  - refId: A
+                    relativeTimeRange:
+                      from: 3600
+                      to: 0
+                    datasourceUid: prometheus
+                    model:
+                      refId: A
+                      datasource: *id001
+                      expr: time() - max(kube_job_status_completion_time{namespace="data", job_name=~"pg-backup.*"})
+                      instant: true
+                      range: false
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: B
+                    datasourceUid: __expr__
+                    model:
+                      refId: B
+                      type: reduce
+                      expression: A
+                      reducer: last
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      settings:
+                        mode: dropNN
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: C
+                    datasourceUid: __expr__
+                    model:
+                      refId: C
+                      type: threshold
+                      expression: B
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      conditions:
+                      - evaluator:
+                          type: gt
+                          params:
+                          - 129600
+                        operator:
+                          type: and
+                        query:
+                          params:
+                          - B
+                        reducer:
+                          type: last
+                          params: []
+                        type: query
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                - uid: fp-ingest-stalled
+                  title: Ingestion stalled
+                  condition: C
+                  for: 5m
+                  noDataState: Alerting
+                  execErrState: Error
+                  labels:
+                    severity: critical
+                  annotations:
+                    summary: No new Hacker News story has been ingested for more than 30 minutes.
+                  data:
+                  - refId: A
+                    relativeTimeRange:
+                      from: 600
+                      to: 0
+                    datasourceUid: postgres
+                    model:
+                      refId: A
+                      datasource: &id002
+                        type: grafana-postgresql-datasource
+                        uid: postgres
+                      rawSql: SELECT round(extract(epoch FROM now() - max(ingested_at)) / 60) AS value FROM stories
+                      format: table
+                      rawQuery: true
+                      editorMode: code
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: C
+                    datasourceUid: __expr__
+                    model:
+                      refId: C
+                      type: threshold
+                      expression: A
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      conditions:
+                      - evaluator:
+                          type: gt
+                          params:
+                          - 30
+                        operator:
+                          type: and
+                        query:
+                          params:
+                          - A
+                        reducer:
+                          type: last
+                          params: []
+                        type: query
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                - uid: fp-label-backlog
+                  title: Label backlog growing
+                  condition: C
+                  for: 30m
+                  noDataState: OK
+                  execErrState: Error
+                  labels:
+                    severity: warning
+                  annotations:
+                    summary: More than 500 stories older than 26 hours have no label yet.
+                  data:
+                  - refId: A
+                    relativeTimeRange:
+                      from: 600
+                      to: 0
+                    datasourceUid: postgres
+                    model:
+                      refId: A
+                      datasource: *id002
+                      rawSql: SELECT count(*) AS value FROM stories s LEFT JOIN labels l ON l.story_id = s.id WHERE l.story_id IS NULL AND s.posted_at < now() - interval '26 hours'
+                      format: table
+                      rawQuery: true
+                      editorMode: code
+                      intervalMs: 1000
+                      maxDataPoints: 43200
+                  - refId: C
+                    datasourceUid: __expr__
+                    model:
+                      refId: C
+                      type: threshold
+                      expression: A
+                      datasource:
+                        type: __expr__
+                        uid: __expr__
+                      conditions:
+                      - evaluator:
+                          type: gt
+                          params:
+                          - 500
+                        operator:
+                          type: and
+                        query:
+                          params:
+                          - A
+                        reducer:
+                          type: last
+                          params: []
+                        type: query
+                      intervalMs: 1000
+                      maxDataPoints: 43200
           ingress:
             enabled: true
             ingressClassName: traefik
