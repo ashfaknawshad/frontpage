@@ -36,7 +36,7 @@ jobs:
           dvc pull data/hn_stories.parquet.dvc
 
       - name: Build reference profile
-        run: python -m frontpage.reference
+        run: PYTHONPATH=src python -m frontpage.reference
 
       - name: Summary
         run: |
