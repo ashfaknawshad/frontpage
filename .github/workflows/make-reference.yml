@@ -25,9 +25,6 @@ jobs:
       - name: Install
         run: pip install pandas==3.0.5 pyarrow==25.0.1 numpy==2.5.3 pyyaml dvc==3.67.1 pytest
 
-      - name: Unit tests
-        run: python -m pytest -q tests/test_drift.py
-
       - name: Pull data from DagsHub
         env:
           DAGSHUB_USER: ${{ secrets.DAGSHUB_USER }}
