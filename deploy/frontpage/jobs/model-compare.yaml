@@ -21,7 +21,7 @@ spec:
             runAsUser: 10001
           containers:
             - name: model-compare
-              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-0000000
+              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-3cbc51d
               args: ["jobs.model_compare"]
               env:
                 - { name: PGHOST, value: pg-rw.data.svc.cluster.local }

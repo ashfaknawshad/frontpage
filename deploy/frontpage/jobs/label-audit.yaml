@@ -21,7 +21,7 @@ spec:
             runAsUser: 10001
           containers:
             - name: label-audit
-              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-7613052
+              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-3cbc51d
               args: ["jobs.label_audit"]
               env:
                 - { name: PGHOST, value: pg-rw.data.svc.cluster.local }
