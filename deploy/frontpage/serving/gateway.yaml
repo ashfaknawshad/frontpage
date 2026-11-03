@@ -33,7 +33,6 @@ spec:
             - { name: CHALLENGER_URL, value: "http://frontpage-challenger-predictor.frontpage.svc.cluster.local/v1/models/frontpage:predict" }
             - { name: ROUTING_MODE, value: shadow }
             - { name: CANARY_PERCENT, value: "0" }
-            - { name: SHOW_PROBABILITY, value: "true" }
           readinessProbe:
             httpGet: { path: /healthz, port: http }
             initialDelaySeconds: 5
