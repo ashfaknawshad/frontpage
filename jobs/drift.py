@@ -160,3 +160,23 @@ def average_precision(y, p):
 def brier(y, p):
     y, p = np.asarray(y, dtype=float), np.asarray(p, dtype=float)
     return float(np.mean((p - y) ** 2))
+
+
+def expected_calibration_error(y, p, bins=10):
+    y, p = np.asarray(y, dtype=float), np.asarray(p, dtype=float)
+    if len(y) < bins:
+        return None
+    order = np.argsort(p, kind="mergesort")
+    groups = np.array_split(order, bins)
+    return float(sum(len(g) * abs(y[g].mean() - p[g].mean()) for g in groups) / len(y))
+
+
+def precision_at_k_per_day(days, y, p, k=20):
+    """Average over days of the hit rate among the k highest-scored stories of that day."""
+    days, y, p = np.asarray(days), np.asarray(y, dtype=float), np.asarray(p, dtype=float)
+    rates = []
+    for day in np.unique(days):
+        idx = np.where(days == day)[0]
+        top = idx[np.argsort(-p[idx], kind="mergesort")[:k]]
+        rates.append(y[top].mean())
+    return float(np.mean(rates)) if rates else None
