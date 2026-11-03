@@ -15,6 +15,7 @@ MIN_GRADED = int(os.environ.get("MONITOR_MIN_GRADED", "300"))
 MIN_ROWS_PER_MODEL = int(os.environ.get("MONITOR_MIN_ROWS_PER_MODEL", "30"))
 DRIFT_MIN_FEATURES = int(os.environ.get("MONITOR_DRIFT_MIN_FEATURES", "3"))
 PERF_RATIO = float(os.environ.get("MONITOR_PERF_RATIO", "0.9"))
+PERF_Z = float(os.environ.get("MONITOR_PERF_Z", "1.64"))
 COOLDOWN_DAYS = int(os.environ.get("MONITOR_COOLDOWN_DAYS", "7"))
 AUTO_RETRAIN = os.environ.get("AUTO_RETRAIN", "false").lower() == "true"
 MLFLOW_URL = os.environ.get("MLFLOW_URL", "http://mlflow.mlflow.svc.cluster.local").rstrip("/")
@@ -58,6 +59,8 @@ CREATE TABLE IF NOT EXISTS monitor_model (
     base_rate     DOUBLE PRECISION,
     PRIMARY KEY (run_id, role, model_version)
 );
+ALTER TABLE monitor_runs ADD COLUMN IF NOT EXISTS champion_roc_auc_se DOUBLE PRECISION;
+ALTER TABLE monitor_model ADD COLUMN IF NOT EXISTS roc_auc_se DOUBLE PRECISION;
 """
 
 
@@ -89,8 +92,9 @@ def model_performance(conn):
     out = []
     for (role, version), (y, p) in sorted(groups.items()):
         full = len(y) >= MIN_ROWS_PER_MODEL
+        auc = drift.roc_auc(y, p) if full else None
         out.append({"role": role, "model_version": version, "n": len(y),
-                    "roc_auc": drift.roc_auc(y, p) if full else None,
+                    "roc_auc": auc, "roc_auc_se": drift.roc_auc_se(auc, sum(y), len(y) - sum(y)),
                     "pr_auc": drift.average_precision(y, p) if full else None,
                     "brier": drift.brier(y, p) if full else None,
                     "mean_prob": sum(p) / len(p), "base_rate": sum(y) / len(y)})
@@ -118,10 +122,13 @@ def champion_reference():
 
 
 def decide(n_drifted, n_live, champion_roc, reference_roc, n_graded, previous_drift, days_since_trigger,
-           auto_retrain):
-    """Returns (reason, action). Two rules: live ranking quality fell, or the inputs drifted two runs in a row."""
+           auto_retrain, champion_se=0.0):
+    """Returns (reason, action). Two rules: live ranking quality is significantly lower, or the inputs drifted twice.
+
+    Quality counts as lower only when even the optimistic end of the estimate (AUC + Z standard errors) is
+    below 90% of the reference, so a handful of hits cannot trigger a retrain by chance."""
     perf_bad = (champion_roc is not None and reference_roc is not None and n_graded >= MIN_GRADED
-                and champion_roc < PERF_RATIO * reference_roc)
+                and champion_roc + PERF_Z * (champion_se or 0.0) < PERF_RATIO * reference_roc)
     drift_bad = n_drifted is not None and n_live >= MIN_LIVE and n_drifted >= DRIFT_MIN_FEATURES
     reason = "performance" if perf_bad else ("drift" if drift_bad and previous_drift else None)
     if reason is None:
@@ -152,6 +159,7 @@ def main():
         champ_version, reference_roc = champion_reference()
         champ = next((m for m in models if m["role"] == "champion" and m["model_version"] == champ_version), None)
         champ_roc, n_graded = (champ["roc_auc"], champ["n"]) if champ else (None, 0)
+        champ_se = champ["roc_auc_se"] if champ else None
 
         n_drifted = None if drift_result is None else sum(1 for v in drift_result.values() if v["psi"] >= drift.PSI_ALERT)
         previous = conn.execute("SELECT drift FROM monitor_runs WHERE ts > now() - interval '3 days' "
@@ -159,7 +167,7 @@ def main():
         last_trigger = conn.execute("SELECT extract(epoch FROM now() - max(ts)) / 86400 FROM monitor_runs "
                                     "WHERE action = 'triggered'").fetchone()[0]
         reason, action = decide(n_drifted, n_live, champ_roc, reference_roc, n_graded,
-                                bool(previous and previous[0]), last_trigger, AUTO_RETRAIN)
+                                bool(previous and previous[0]), last_trigger, AUTO_RETRAIN, champ_se)
         if action == "triggered":
             try:
                 status = dispatch_retrain(reason)
@@ -170,23 +178,23 @@ def main():
 
         run_id = conn.execute(
             "INSERT INTO monitor_runs (window_days, n_live, drifted_features, drift, champion_version, "
-            "champion_roc_auc, reference_roc_auc, n_graded, base_rate_live, base_rate_ref, reason, action) "
-            "VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
+            "champion_roc_auc, champion_roc_auc_se, reference_roc_auc, n_graded, base_rate_live, base_rate_ref, "
+            "reason, action) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s) RETURNING id",
             (WINDOW_DAYS, n_live, n_drifted, None if n_drifted is None else n_drifted >= DRIFT_MIN_FEATURES,
-             champ_version, champ_roc, reference_roc, n_graded, base_live,
+             champ_version, champ_roc, champ_se, reference_roc, n_graded, base_live,
              spec.get("base_rate") if spec else None, reason, action)).fetchone()[0]
         for feature, result in (drift_result or {}).items():
             conn.execute("INSERT INTO monitor_psi (run_id, feature, psi, detail) VALUES (%s, %s, %s, %s)",
                          (run_id, feature, result["psi"], result["detail"]))
         for m in models:
             conn.execute(
-                "INSERT INTO monitor_model (run_id, role, model_version, n, roc_auc, pr_auc, brier, mean_prob, "
-                "base_rate) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)",
-                (run_id, m["role"], m["model_version"], m["n"], m["roc_auc"], m["pr_auc"], m["brier"],
+                "INSERT INTO monitor_model (run_id, role, model_version, n, roc_auc, roc_auc_se, pr_auc, brier, "
+                "mean_prob, base_rate) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)",
+                (run_id, m["role"], m["model_version"], m["n"], m["roc_auc"], m["roc_auc_se"], m["pr_auc"], m["brier"],
                  m["mean_prob"], m["base_rate"]))
         conn.commit()
-    log.info("monitor: live=%d drifted=%s champion v%s roc_auc=%s (reference %s, n=%d) -> %s%s",
-             n_live, n_drifted, champ_version, champ_roc, reference_roc, n_graded, action,
+    log.info("monitor: live=%d drifted=%s champion v%s roc_auc=%s +/- %s (reference %s, n=%d) -> %s%s",
+             n_live, n_drifted, champ_version, champ_roc, champ_se, reference_roc, n_graded, action,
              f" ({reason})" if reason else "")
 
 

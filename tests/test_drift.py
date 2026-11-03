@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 import numpy as np
 import pytest
@@ -99,3 +99,28 @@ def test_auto_retrain_flag_turns_would_trigger_into_triggered():
     args = dict(n_drifted=5, n_live=900, champion_roc=0.7, reference_roc=0.72, n_graded=500, previous_drift=True,
                 days_since_trigger=None)
     assert decide(auto_retrain=True, **args) == ("drift", "triggered")
+
+
+def test_roc_auc_se_matches_known_scale_and_handles_degenerate_input():
+    assert drift.roc_auc_se(0.6, 35, 1260) == pytest.approx(0.0501, abs=0.003)
+    assert drift.roc_auc_se(0.9, 100, 100) < drift.roc_auc_se(0.6, 100, 100)
+    assert drift.roc_auc_se(None, 10, 10) is None and drift.roc_auc_se(0.7, 1, 50) is None
+
+
+def test_few_hits_cannot_trigger_a_retrain_but_a_real_drop_can():
+    base = dict(n_drifted=0, n_live=900, reference_roc=0.707, n_graded=1295, previous_drift=False,
+                days_since_trigger=None, auto_retrain=False)
+    assert decide(champion_roc=0.596, champion_se=0.05, **base) == (None, "none")
+    assert decide(champion_roc=0.596, champion_se=0.01, **base) == ("performance", "would_trigger")
+    assert decide(champion_roc=0.596, **base) == ("performance", "would_trigger")
+
+
+def test_categories_missing_from_the_reference_count_as_drift_even_without_an_other_bucket():
+    monday = datetime(2026, 11, 2, 12, tzinfo=timezone.utc)
+    ref_rows = [("t", "https://a.com", "a.com", "story", monday)] * 200
+    spec = drift.profile(drift.extract(ref_rows))
+    assert "other" not in spec["features"]["dow"]["categories"]
+    live_rows = [("t", "https://a.com", "a.com", "story", monday + timedelta(days=i % 7)) for i in range(200)]
+    result = drift.compare(spec, drift.extract(live_rows))["dow"]
+    assert result["psi"] > drift.PSI_ALERT
+    assert "->" in result["detail"]

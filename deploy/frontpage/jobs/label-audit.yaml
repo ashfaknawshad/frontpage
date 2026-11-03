@@ -1,0 +1,39 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: label-audit
+spec:
+  schedule: "0 0 1 1 *"
+  suspend: true
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 2
+  failedJobsHistoryLimit: 2
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      activeDeadlineSeconds: 1800
+      ttlSecondsAfterFinished: 86400
+      template:
+        spec:
+          restartPolicy: Never
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 10001
+          containers:
+            - name: label-audit
+              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-0000000
+              args: ["jobs.label_audit"]
+              env:
+                - { name: PGHOST, value: pg-rw.data.svc.cluster.local }
+                - { name: PGDATABASE, value: frontpage }
+                - name: PGUSER
+                  valueFrom: { secretKeyRef: { name: pg-frontpage, key: username } }
+                - name: PGPASSWORD
+                  valueFrom: { secretKeyRef: { name: pg-frontpage, key: password } }
+              resources:
+                requests: { cpu: 20m, memory: 96Mi }
+                limits: { memory: 256Mi }
+              securityContext:
+                allowPrivilegeEscalation: false
+                readOnlyRootFilesystem: true
+                capabilities: { drop: [ALL] }

@@ -86,11 +86,11 @@ def _live_shares(feature, values):
         return np.array([1 - p1, p1])
     cats = feature["categories"]
     pos = {c: i for i, c in enumerate(cats)}
-    counts = np.zeros(len(cats))
+    unseen = len(cats)
+    counts = np.zeros(len(cats) + (0 if OTHER in pos else 1))
     for v in values:
         key = str(v) if str(v) in pos else OTHER
-        if key in pos:
-            counts[pos[key]] += 1
+        counts[pos.get(key, unseen)] += 1
     return _shares(counts)
 
 
@@ -106,10 +106,13 @@ def compare(spec, cols):
             ref = np.asarray(feature["p"])
             detail = f"mean {feature['mean']:.1f} -> {float(np.mean(cols[name])):.1f}"
         else:
+            names = list(feature["categories"])
             ref = np.asarray(feature["p"])
-            gap = np.abs(live - ref)
-            k = int(np.argmax(gap))
-            detail = f"{feature['categories'][k]}: {100 * ref[k]:.1f}% -> {100 * live[k]:.1f}%"
+            if len(live) > len(ref):
+                names.append("(unseen)")
+                ref = np.append(ref, 0.0)
+            k = int(np.argmax(np.abs(live - ref)))
+            detail = f"{names[k]}: {100 * ref[k]:.1f}% -> {100 * live[k]:.1f}%"
         out[name] = {"psi": psi(ref, live), "detail": detail}
     return out
 
@@ -130,6 +133,15 @@ def roc_auc(y, p):
         return None
     ranks = _average_ranks(p)
     return float((ranks[y == 1].sum() - n_pos * (n_pos + 1) / 2) / (n_pos * n_neg))
+
+
+def roc_auc_se(auc, n_pos, n_neg):
+    """Hanley-McNeil standard error of an ROC-AUC estimate."""
+    if auc is None or n_pos < 2 or n_neg < 2:
+        return None
+    q1, q2 = auc / (2 - auc), 2 * auc * auc / (1 + auc)
+    var = (auc * (1 - auc) + (n_pos - 1) * (q1 - auc * auc) + (n_neg - 1) * (q2 - auc * auc)) / (n_pos * n_neg)
+    return float(var ** 0.5)
 
 
 def average_precision(y, p):

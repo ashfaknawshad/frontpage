@@ -650,7 +650,56 @@ data:
                 "type": "grafana-postgresql-datasource",
                 "uid": "postgres"
               },
-              "rawSql": "SELECT ts, n_live AS live_stories, drifted_features, round(champion_roc_auc::numeric, 3) AS champion_roc_auc, n_graded, coalesce(reason, '') AS reason, action FROM monitor_runs ORDER BY ts DESC LIMIT 30",
+              "rawSql": "SELECT ts, n_live AS live_stories, drifted_features, round(champion_roc_auc::numeric, 3) AS champion_roc_auc, round(champion_roc_auc_se::numeric, 3) AS roc_auc_se, n_graded, coalesce(reason, '') AS reason, action FROM monitor_runs ORDER BY ts DESC LIMIT 30",
+              "format": "table",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true
+          }
+        },
+        {
+          "id": 16,
+          "type": "row",
+          "title": "Label audit (24-hour labels vs final scores)",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 33,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 17,
+          "type": "table",
+          "title": "Latest audits",
+          "description": "Re-scores the champion's graded stories using today's HN score instead of the 24-hour score. late_risers are stories that crossed 100 points after the 24-hour label was written.",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 34,
+            "w": 24,
+            "h": 6
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT ts, champion_version AS champion, n AS stories, hits_24h, hits_final, late_risers, round((100 * base_24h)::numeric, 2) AS hit_rate_24h_pct, round((100 * base_final)::numeric, 2) AS hit_rate_final_pct, round(auc_24h::numeric, 3) AS roc_auc_24h, round(auc_final::numeric, 3) AS roc_auc_final, round(auc_final_se::numeric, 3) AS se_final FROM label_audit ORDER BY ts DESC LIMIT 5",
               "format": "table",
               "rawQuery": true,
               "editorMode": "code"
