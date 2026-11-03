@@ -20,7 +20,7 @@ spec:
             runAsUser: 10001
           containers:
             - name: monitor
-              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-9e71f71
+              image: ghcr.io/ashfaknawshad/frontpage-jobs:sha-7613052
               args: ["jobs.monitor"]
               env:
                 - { name: PGHOST, value: pg-rw.data.svc.cluster.local }
