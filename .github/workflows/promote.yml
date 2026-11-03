@@ -1,0 +1,54 @@
+name: promote
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Registered model version to promote to champion"
+        required: true
+      show_probability:
+        description: "Show the probability on the demo page (use for calibrated models)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  propose:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      MLFLOW_TRACKING_URI: ${{ secrets.MLFLOW_TRACKING_URI }}
+      MLFLOW_TRACKING_USERNAME: ${{ secrets.MLFLOW_TRACKING_USERNAME }}
+      MLFLOW_TRACKING_PASSWORD: ${{ secrets.MLFLOW_TRACKING_PASSWORD }}
+      GH_TOKEN: ${{ github.token }}
+      VERSION: ${{ inputs.version }}
+      SHOW_PROB: ${{ inputs.show_probability }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Tests
+        run: |
+          pip install pytest
+          python -m pytest -q tests/test_promote.py
+      - name: Build the comparison table
+        run: python scripts/promote.py plan --version "$VERSION" > plan.md
+      - name: Edit the manifests
+        run: |
+          flags=""
+          if [ "$SHOW_PROB" = "true" ]; then flags="--show-probability"; fi
+          python scripts/promote.py apply --version "$VERSION" $flags
+      - name: Open the pull request
+        run: |
+          branch="promote/v${VERSION}"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git checkout -b "$branch"
+          git add deploy/frontpage/serving
+          git commit -m "Promote model v${VERSION} to champion"
+          git push --force origin "$branch"
+          gh pr create --base main --head "$branch" --title "Promote model v${VERSION} to champion" --body-file plan.md

@@ -755,6 +755,55 @@ data:
               "sort": "desc"
             }
           }
+        },
+        {
+          "id": 17,
+          "type": "row",
+          "title": "Head-to-head: champion vs challenger on the same stories",
+          "collapsed": false,
+          "gridPos": {
+            "x": 0,
+            "y": 36,
+            "w": 24,
+            "h": 1
+          },
+          "panels": []
+        },
+        {
+          "id": 18,
+          "type": "table",
+          "title": "Shadow comparison (latest run of the model-compare job)",
+          "description": "Both models scored the same stories, so differences are not luck of the draw. Run the model-compare job to refresh. Compare ROC-AUC within about two standard errors before declaring a winner.",
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres"
+          },
+          "gridPos": {
+            "x": 0,
+            "y": 37,
+            "w": 24,
+            "h": 7
+          },
+          "targets": [
+            {
+              "refId": "A",
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres"
+              },
+              "rawSql": "SELECT label_def AS labels, role, 'v' || model_version AS model, n, hits, round(base_rate::numeric, 4) AS hit_rate, round(mean_prob::numeric, 4) AS mean_prob, round(brier::numeric, 4) AS brier, round(ece::numeric, 4) AS ece, round(roc_auc::numeric, 3) AS roc_auc, round(roc_auc_se::numeric, 3) AS roc_auc_se, round(pr_auc::numeric, 4) AS pr_auc, round(p_at_20_day::numeric, 3) AS p_at_20 FROM model_compare WHERE ts = (SELECT max(ts) FROM model_compare) ORDER BY label_def, role",
+              "format": "table",
+              "rawQuery": true,
+              "editorMode": "code"
+            }
+          ],
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "options": {
+            "showHeader": true
+          }
         }
       ]
     }
