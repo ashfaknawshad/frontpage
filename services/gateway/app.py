@@ -201,17 +201,19 @@ async def metrics():
     return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
-TOP_SQL = """
+CURRENT = "(SELECT model_version FROM predictions WHERE role = 'champion' ORDER BY created_at DESC LIMIT 1)"
+
+TOP_SQL = f"""
 SELECT DISTINCT ON (s.id) s.id, s.title, s.url, s.domain, s.posted_at, p.prob
 FROM predictions p JOIN stories s ON s.id = p.story_id
-WHERE p.role = 'champion' AND s.posted_at > now() - interval '24 hours'
+WHERE p.model_version = {CURRENT} AND s.posted_at > now() - interval '24 hours'
 ORDER BY s.id, p.created_at DESC
 """
 
-CARD_SQL = """
+CARD_SQL = f"""
 SELECT DISTINCT ON (s.id) s.id, s.title, s.url, p.prob, l.score_24h, l.label
 FROM predictions p JOIN stories s ON s.id = p.story_id JOIN labels l ON l.story_id = s.id
-WHERE p.role = 'champion' AND l.status = 'ok'
+WHERE p.model_version = {CURRENT} AND l.status = 'ok'
   AND s.posted_at > now() - interval '48 hours' AND s.posted_at <= now() - interval '24 hours'
 ORDER BY s.id, p.created_at DESC
 """

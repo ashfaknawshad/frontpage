@@ -133,3 +133,22 @@ def test_demo_page_renders_picks_and_report_card(monkeypatch):
     assert "model v1" in page
     assert "<td>#1</td>" in page
     assert "%</td>" not in page.split("report card")[0].split("Today")[1]
+
+
+def test_demo_page_ignores_predictions_from_other_model_versions(monkeypatch):
+    gw = load_app(monkeypatch, challenger=False)
+    with psycopg.connect(DSN, autocommit=True) as conn:
+        conn.execute("INSERT INTO stories (id, title, kind, posted_at) VALUES "
+                     "(1, 'Old model only', 'story', now() - interval '3 hours'),"
+                     "(2, 'Scored by both', 'story', now() - interval '2 hours')")
+    with TestClient(gw.app) as c:
+        c.post("/predict", json={"title": "t", "story_id": 1}, headers={"X-API-Key": "k-ingest"})
+        wait_for("SELECT count(*) FROM predictions", 1)
+        with psycopg.connect(DSN, autocommit=True) as conn:
+            conn.execute("UPDATE predictions SET model_version = '0', prob = 0.97, created_at = now() - interval '1 hour'")
+        c.post("/predict", json={"title": "t", "story_id": 2}, headers={"X-API-Key": "k-ingest"})
+        wait_for("SELECT count(*) FROM predictions WHERE model_version = '1'", 1)
+        page = c.get("/").text
+    top = page.split("Today")[1].split("report card")[0]
+    assert "Scored by both" in top and "Old model only" not in top and "97%" not in top
+
