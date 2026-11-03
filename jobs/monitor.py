@@ -157,7 +157,9 @@ def main():
         n_live, drift_result = live_drift(conn, spec)
         models, base_live = model_performance(conn)
         champ_version, reference_roc = champion_reference()
-        champ = next((m for m in models if m["role"] == "champion" and m["model_version"] == champ_version), None)
+        # Grade the champion version under whichever role logged it most: right after a promotion its
+        # graded history sits under "challenger" from its time in shadow.
+        champ = max((m for m in models if m["model_version"] == champ_version), key=lambda m: m["n"], default=None)
         champ_roc, n_graded = (champ["roc_auc"], champ["n"]) if champ else (None, 0)
         champ_se = champ["roc_auc_se"] if champ else None
 
