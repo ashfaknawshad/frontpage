@@ -162,7 +162,7 @@ data:
               "calcs": [
                 "lastNotNull"
               ],
-              "fields": "",
+              "fields": "/^value$/",
               "values": false
             },
             "colorMode": "value",
