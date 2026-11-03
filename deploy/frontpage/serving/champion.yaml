@@ -17,7 +17,7 @@ spec:
       prometheus.io/path: /metrics
     containers:
       - name: kserve-container
-        image: ghcr.io/ashfaknawshad/frontpage-serving:sha-7cd638c
+        image: ghcr.io/ashfaknawshad/frontpage-serving:sha-d84b9b5
         env:
           - { name: MODEL_URI, value: "models:/frontpage/3" }
           - { name: MODEL_ROLE, value: champion }
