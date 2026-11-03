@@ -99,3 +99,13 @@ def test_dispatch_failure_is_recorded_not_raised(db, monkeypatch):
     monkeypatch.setattr(monitor, "dispatch_retrain", boom)
     monitor.main()
     assert runs()[0][2] == "dispatch_failed"
+
+
+def test_a_freshly_promoted_champion_is_graded_on_its_shadow_history(db, monkeypatch):
+    with psycopg.connect(DSN, autocommit=True) as conn:
+        seed(conn)
+        conn.execute("UPDATE predictions SET role = 'challenger', model_version = '3'")
+    monkeypatch.setattr(monitor, "champion_reference", lambda: ("3", 0.72))
+    monitor.main()
+    champion_roc, n_graded = runs()[0][4:6]
+    assert n_graded == 700 and champion_roc is not None
